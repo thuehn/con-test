@@ -256,6 +256,37 @@ start_iperf()
 	fi
 }
 
+run_script()
+{
+	script=$1
+	side=$2
+	script_lang="sh" #substitude with function
+	auth=$(check_auth "$side")
+
+	printf "${INFO} running script $script on $side"
+	if [[ "$side" == "$CLIENT" ]]; then
+		ip=$CLIENT_IP
+		user=$CLIENT_USER
+		passwd=$CLIENT_PASSWORD
+		cert=$CLIENT_CERTIFICATE
+	else
+		ip=$SERVER_IP
+		user=$SERVER_USER
+		passwd=$SERVER_PASSWORD
+		cert=$SERVER_CERTIFICATE
+	fi
+
+	if [[ "$auth" == "$PASSWD" ]]; then
+		sshpass -p "$passwd" scp "$script" "$user"@"$ip":/tmp/
+		sshpass -p "$passwd" ssh "$user"@"$ip" \
+			"$script_lang" "/tmp/$(basename "$script")"
+	else
+		scp -i "$cert" "$script" "$user"@"$ip":/tmp/
+		ssh -i "$cert" "$user"@"$ip" \
+			"$script_lang" "/tmp/$(basename "$script")"
+	fi
+}
+
 # start attenuators, get the attenuation up
 #
 # Arguments:
@@ -433,6 +464,12 @@ main()
 
 		if [[ "$mon" == "$ON" ]]; then
 			bash wireless_monitor -o $LOG_PATH -c $config_path &
+		fi
+
+		#run scripts
+		if [ -n "${USER_SCRIPT[${i} - 1]}" ]; then
+			run_script "${USER_SCRIPT[${1} - 1]}" $CLIENT
+			run_script "${USER_SCRIPT[${1} - 1]}" $SERVER
 		fi
 
 		#start measurement
