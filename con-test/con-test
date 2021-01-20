@@ -42,7 +42,7 @@ SUDO=''
 stop_file_collect()
 {
 	side=$1
-	auth=$(check_auth $side)
+	auth=$(check_auth "$side")
 
 	if [[ "$side" == "$CLIENT" ]]; then
 		ip=$CLIENT_IP
@@ -57,10 +57,10 @@ stop_file_collect()
 	fi
 
 	if [[ "$auth" == "$PASSWD" ]]; then
-		sshpass -p $passwd ssh ${user}@${ip} \
+		sshpass -p "$passwd" ssh "${user}@${ip}" \
 			'touch /tmp/stop'
 	else
-		ssh -i $cert ${user}@${ip} \
+		ssh -i "$cert" "${user}@${ip}" \
 			'touch /tmp/stop'
 	fi
 }
@@ -72,7 +72,7 @@ add_timestamp()
 	run=$3
 	append=$4
 
-	while usleep $time
+	while usleep "$time"
 	do
 		if [ -f '/tmp/stop' ]; then
 			break
@@ -256,11 +256,40 @@ start_iperf()
 	fi
 }
 
+get_script_language()
+{
+	test_file=$1
+	if [ -z "$lang" ]; then
+		echo "nothing set"
+		lang=$(awk 'NR==1 { print $NF}' "$test_file" )
+	fi
+	case $lang in
+		sh | "env sh" | \
+		python | "env python" | \
+		python2 | \
+		python3 | \
+		perl | "perl -w" | \
+		"awk -f")
+			echo "$lang"
+			return $SUCCESS
+			;;
+		*)
+			return $FAILURE
+			;;
+	esac
+}
+
+# run user specific script
+#
+# Arguments:
+# script: script provided by user to run
+# side: where to start the script  0 for client, 1 for server
+#
 run_script()
 {
 	script=$1
 	side=$2
-	script_lang="sh" #substitude with function
+	script_lang=$(get_script_language $script)
 	auth=$(check_auth "$side")
 
 	printf "${INFO} running script $script on $side"
@@ -463,7 +492,8 @@ main()
 		fi
 
 		if [[ "$mon" == "$ON" ]]; then
-			bash wireless_monitor -o $LOG_PATH -c $config_path &
+			bash wireless_monitor -o "$LOG_PATH" \
+					      -c "$config_path" &
 		fi
 
 		#run scripts
@@ -481,7 +511,7 @@ main()
 
 		sleep 3
 
-		start_antennuator ${ATTENUATOR_PARAMS[${i} - 1]}
+		start_antennuator "${ATTENUATOR_PARAMS[${i} - 1]}"
 
 		sleep 2
 
@@ -494,4 +524,4 @@ main()
 	done
 }
 
-main $@
+main "$@"
